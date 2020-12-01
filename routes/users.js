@@ -2,6 +2,17 @@ const e = require("express");
 var express = require("express");
 var router = express.Router();
 const User = require("../models/user");
+
+//get all the users sorted by there timestamp(newest to oldest)
+router.get("/", async (req, res) => {
+  //pagination assuming the server decides the page size.
+
+  const pageNumber = parseInt(req.query.pageNumber);
+  const PAGE_SIZE = 2; // Similar to 'limit'
+  const skip = (pageNumber - 1) * PAGE_SIZE;
+  let users = await User.find({}).sort("createdAt").skip(skip).limit(PAGE_SIZE);
+  res.json({ success: true, users: users });
+});
 //create user
 router.post("/", async (req, res) => {
   //check if mobile number is associated with another user
