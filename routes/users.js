@@ -5,30 +5,54 @@ const User = require("../models/user");
 
 //get all the users sorted by there timestamp(newest to oldest)
 router.get("/", async (req, res) => {
+  //sortBy user createdAt or by distance with specified latlng
+  const sortBy = req.query.sortBy;
   //pagination assuming the server decides the page size.
-
   const pageNumber = parseInt(req.query.pageNumber);
-  const PAGE_SIZE = 2; // Similar to 'limit'
+  const PAGE_SIZE = 5; // Similar to 'limit'
   const skip = (pageNumber - 1) * PAGE_SIZE;
-  let users = await User.find({})
-    .sort("-createdAt")
-    .skip(skip)
-    .limit(PAGE_SIZE);
+  let users = [];
+  if (sortBy.toLowerCase() === "created") {
+    users = await User.find({}).sort("-createdAt").skip(skip).limit(PAGE_SIZE);
+  } else {
+    //get the lat and lng from query string
+    //convert from string to float
+    const lng = parseFloat(req.query.lng);
+    const lat = parseFloat(req.query.lat);
+
+    users = await User.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          distanceField: "distance",
+          spherical: true,
+          distanceMultiplier: 0.001, // convert from meters to kilometers
+        },
+      },
+    ])
+      .skip(skip)
+      .limit(PAGE_SIZE);
+  }
+
   res.json({ success: true, users: users });
 });
+
 //create user
 router.post("/", async (req, res) => {
   //check if mobile number is associated with another user
   const mobile_exists = await User.findOne({ mobile: req.body.mobile });
   if (mobile_exists) {
-    res.json({ success: false, message: "Mobile already exists" });
+    res.json({ success: false, message: "Mobile number already exists" });
     return;
   }
 
   //check if email id is associated with another user
   const email_exists = await User.findOne({ email: req.body.email });
   if (email_exists) {
-    res.json({ success: false, message: "Email already exists" });
+    res.json({ success: false, message: "Email ID already exists" });
     return;
   }
   //create new user
